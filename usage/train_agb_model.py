@@ -2,7 +2,7 @@ import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from datasets import Dataset
 import torch
-
+import os
 
 
 # 1. Daten laden
@@ -22,11 +22,14 @@ def preprocess_data(df, tokenizer):
         return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=512)
 
     # Konvertiere die Labels in Integer-Form
+    if 'label' not in df.columns:
+        raise ValueError("Die 'label' Spalte fehlt im Datensatz!")
     df["label"] = df["label"].astype(int)
 
     dataset = Dataset.from_pandas(df)
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
     return tokenized_dataset
+
 
 # 3. Modell initialisieren
 def initialize_model():
@@ -63,6 +66,17 @@ def train_model(dataset, model, tokenizer):
     trainer.train()
 
     print("Training abgeschlossen!")
+
+    # Modell nach dem Training speichern
+    print("Modell wird gespeichert...")
+
+    # Sicherstellen, dass der Ordner existiert
+    if not os.path.exists("models"):
+        os.makedirs("models")
+
+    model.save_pretrained("models/agb_ki_model")
+    tokenizer.save_pretrained("models/agb_ki_model")  # Speichert auch den Tokenizer
+    print("Modell erfolgreich gespeichert!")
 
 
 # Hauptfunktion
