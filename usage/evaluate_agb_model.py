@@ -15,7 +15,6 @@ def load_data(file_path):
 def preprocess_data(df, tokenizer):
     print("Daten werden vorverarbeitet...")
 
-    # Padding-Token für GPT-2 festlegen
     tokenizer.pad_token = tokenizer.eos_token
 
     def tokenize_function(examples):
@@ -31,9 +30,9 @@ def initialize_model():
     print("Modell wird geladen...")
     model_name = "gpt2"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token  # Padding-Token für den Tokenizer
+    tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
-    model.config.pad_token_id = tokenizer.eos_token_id  # Padding-Token auch für das Modell
+    model.config.pad_token_id = tokenizer.eos_token_id
     return tokenizer, model
 
 # 4. Metriken definieren
@@ -44,17 +43,22 @@ def compute_metrics(eval_pred):
     acc = accuracy_score(labels, predictions)
     return {"accuracy": acc, "precision": precision, "recall": recall, "f1": f1}
 
-# 5. Trainingskurve plotten
-def plot_training_loss(logs):
+# 5. Trainingskurven für Training und Validierung plotten
+def plot_training_and_validation_loss(trainer):
+    logs = trainer.state.log_history
     if not logs:
         print("Keine Loss-Daten vorhanden.")
         return
+
     train_loss = [log['loss'] for log in logs if 'loss' in log]
+    eval_loss = [log['eval_loss'] for log in logs if 'eval_loss' in log]
+
     plt.figure(figsize=(10, 6))
     plt.plot(train_loss, label="Trainingsverlust")
+    plt.plot(eval_loss, label="Validierungsverlust")
     plt.xlabel("Schritte")
     plt.ylabel("Loss")
-    plt.title("Trainingsverlust über die Zeit")
+    plt.title("Trainings- und Validierungsverlust")
     plt.legend()
     plt.show()
 
@@ -88,16 +92,13 @@ def evaluate_model(dataset, model, tokenizer):
 
 # Hauptfunktion
 if __name__ == "__main__":
-    # Datei-Pfad
-    file_path = "corpus/agb_data.csv"  # Korrigierter Pfad
+    file_path = "corpus/agb_data.csv"
 
-    # Schritte ausführen
     df = load_data(file_path)
     tokenizer, model = initialize_model()
     tokenized_dataset = preprocess_data(df, tokenizer)
 
-    # Modelltraining und Bewertung
     trainer = evaluate_model(tokenized_dataset, model, tokenizer)
 
-    # Trainingskurve anzeigen
-    plot_training_loss(trainer.state.log_history)
+    # Trainings- und Validierungskurven anzeigen
+    plot_training_and_validation_loss(trainer)
