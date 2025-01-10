@@ -17,11 +17,9 @@ def load_data(file_path):
 def preprocess_data(df, tokenizer):
     print("Daten werden vorverarbeitet...")
 
-    # Text in Token umwandeln
     def tokenize_function(examples):
         return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=512)
 
-    # Konvertiere die Labels in Integer-Form
     if 'label' not in df.columns:
         raise ValueError("Die 'label' Spalte fehlt im Datensatz!")
     df["label"] = df["label"].astype(int)
@@ -36,13 +34,12 @@ def initialize_model():
     print("Modell wird geladen...")
     model_name = "distilbert-base-german-cased"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)  # 2 Labels: valid/invalid
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     return tokenizer, model
 
 
 # 4. Training vorbereiten
 def train_model(dataset, model, tokenizer):
-    # Aufteilen in Training und Validierung
     dataset = dataset.train_test_split(test_size=0.2)
 
     training_args = TrainingArguments(
@@ -51,7 +48,7 @@ def train_model(dataset, model, tokenizer):
         per_device_train_batch_size=2,
         save_steps=10,
         save_total_limit=2,
-        eval_strategy="epoch",  # Eval während des Trainings
+        eval_strategy="epoch",
         logging_dir="./logs",
     )
 
@@ -59,7 +56,7 @@ def train_model(dataset, model, tokenizer):
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],  # Eval-Dataset übergeben
+        eval_dataset=dataset["test"],
         tokenizer=tokenizer,
     )
 
@@ -69,29 +66,32 @@ def train_model(dataset, model, tokenizer):
 
     # Modell nach dem Training speichern
     print("Modell wird gespeichert...")
-
-    # Sicherstellen, dass der Ordner existiert
     if not os.path.exists("models"):
         os.makedirs("models")
 
     model.save_pretrained("models/agb_ki_model")
-    tokenizer.save_pretrained("models/agb_ki_model")  # Speichert auch den Tokenizer
+    tokenizer.save_pretrained("models/agb_ki_model")
     print("Modell erfolgreich gespeichert!")
+
+
+# 5. Vorhersage mit Prompt
+def predict_prompt(model, tokenizer):
+    prompt = input("Gib deinen Prompt ein: ")
+    inputs = tokenizer(prompt, return_tensors="pt", padding="max_length", max_length=512, truncation=True)
+    outputs = model(**inputs)
+    prediction = torch.argmax(outputs.logits, dim=1).item()
+    if prediction == 1:
+        print("Diese Bedingung ist gültig.")
+    else:
+        print("Diese Bedingung ist nicht gültig.")
 
 
 # Hauptfunktion
 if __name__ == "__main__":
-    # Datei-Pfad
     file_path = "corpus/agb_data.csv"
 
-    # Daten laden
     df = load_data(file_path)
-
-    # Modell und Tokenizer laden
     tokenizer, model = initialize_model()
-
-    # Daten vorverarbeiten
     tokenized_dataset = preprocess_data(df, tokenizer)
-
-    # Training starten
     train_model(tokenized_dataset, model, tokenizer)
+    predict_prompt(model, tokenizer)
